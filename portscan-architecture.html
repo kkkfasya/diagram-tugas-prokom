@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCP Port Scanner — Codebase Architecture</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #fffff8;   /* Tufte cream */
+      --color-ink:     #111111;
+      --color-muted:   #737373;
+      --color-soft:    #999999;
+      --color-accent:  #4169e1;   /* royal blue, Tufte link blue */
+      --color-accent-tint: #eef2fc;
+      --font-serif: 'et-book', 'Palatino Linotype', Palatino, Georgia, serif;
+      --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-serif);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      padding: 3rem 2rem;
+      font-style: normal;
+    }
+
+    .frame { max-width: 1120px; width: 100%; margin: 0 auto; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 1048px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+
+    /* Function reference */
+    .reference { margin-top: 3rem; }
+    h2 {
+      font-family: var(--font-serif);
+      font-weight: 400;
+      font-size: 1.4rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid rgba(17,17,17,0.2);
+      padding-bottom: 0.4rem;
+    }
+    .module { margin-bottom: 1.75rem; }
+    .module > h3 {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .module > h3 .accent { color: var(--color-accent); }
+    .module > p.intro {
+      font-size: 0.95rem;
+      color: var(--color-ink);
+      margin-bottom: 0.6rem;
+      max-width: 46rem;
+    }
+    table.fn { width: 100%; border-collapse: collapse; }
+    table.fn td {
+      vertical-align: top;
+      border-top: 1px solid rgba(17,17,17,0.2);
+      padding: 0.55rem 0.75rem 0.55rem 0;
+      font-size: 0.92rem;
+    }
+    table.fn tr:first-child td { border-top: none; }
+    table.fn td.sig {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      white-space: nowrap;
+      width: 13rem;
+      color: var(--color-ink);
+    }
+    table.fn td.body { color: var(--color-ink); }
+
+    .footnote {
+      margin-top: 2.5rem;
+      border-top: 1px solid rgba(17,17,17,0.2);
+      padding-top: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--color-muted);
+      max-width: 46rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">SVRI261102 · Pemrograman Komputer · Kelompok 8</p>
+    <h1>TCP Port Scanner — Codebase Architecture</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1048 680" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="portscan-arch-title portscan-arch-desc">
+        <title id="portscan-arch-title">TCP Port Scanner codebase architecture</title>
+        <desc id="portscan-arch-desc">Architecture of the Kelompok 8 TCP port scanner: main.py parses CLI targets, ip/processor.py probes each host port by port over TCP sockets, and open ports are written to timestamped text files.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#737373"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4169e1"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4169e1"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#fffff8"/>
+
+        <!-- ===== Arrows (drawn before boxes) ===== -->
+        <g stroke="#737373" stroke-width="1.2" fill="none">
+          <!-- targets file -> main.py (-f FILE) -->
+          <line x1="128" y1="112" x2="128" y2="158" marker-end="url(#arrow)"/>
+          <!-- main.py -> ip/parser.py -->
+          <line x1="128" y1="256" x2="128" y2="302" marker-end="url(#arrow)"/>
+          <!-- main.py -> ip/processor.py (accent headline path) -->
+          <path d="M 264,192 H 400 Q 408,192 408,200 V 312 Q 408,320 416,320 H 462"
+                stroke="#4169e1" marker-end="url(#arrow-accent)"/>
+          <!-- ip/const.py -> ip/processor.py -->
+          <line x1="560" y1="120" x2="560" y2="254" marker-end="url(#arrow)"/>
+          <!-- processor -> target host (TCP connect) -->
+          <line x1="744" y1="320" x2="830" y2="320" marker-end="url(#arrow)"/>
+          <!-- target host -> processor (connect_ex exit code, dashed return) -->
+          <line x1="832" y1="344" x2="746" y2="344" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+          <!-- processor -> open_ports .txt -->
+          <line x1="744" y1="440" x2="830" y2="440" marker-end="url(#arrow)"/>
+          <!-- processor -> pretty_print -->
+          <line x1="560" y1="464" x2="560" y2="502" marker-end="url(#arrow)"/>
+        </g>
+
+        <!-- ===== Arrow labels (mask + 6-10px gap) ===== -->
+        <g font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="8" letter-spacing="0.06em" text-anchor="middle" fill="#737373">
+          <rect x="138" y="130" width="52" height="12" rx="2" fill="#fffff8"/>
+          <text x="164" y="140">-F FILE</text>
+
+          <rect x="138" y="274" width="76" height="12" rx="2" fill="#fffff8"/>
+          <text x="176" y="284">PARSE_IP_LIST</text>
+
+          <rect x="296" y="172" width="72" height="12" rx="2" fill="#fffff8"/>
+          <text x="332" y="182">SCAN_TARGETS</text>
+
+          <rect x="572" y="182" width="66" height="12" rx="2" fill="#fffff8"/>
+          <text x="605" y="192">TOTAL_PORTS</text>
+
+          <rect x="755" y="300" width="66" height="12" rx="2" fill="#fffff8"/>
+          <text x="788" y="310">TCP CONNECT</text>
+
+          <rect x="759" y="350" width="58" height="12" rx="2" fill="#fffff8"/>
+          <text x="788" y="360">EXIT CODE</text>
+
+          <rect x="757" y="420" width="62" height="12" rx="2" fill="#fffff8"/>
+          <text x="788" y="430">SAVE_PORTS</text>
+
+          <rect x="572" y="478" width="76" height="12" rx="2" fill="#fffff8"/>
+          <text x="610" y="488">PRINT HELPERS</text>
+        </g>
+
+        <!-- ===== Nodes ===== -->
+        <!-- targets file (external, dashed) -->
+        <rect x="48" y="48" width="216" height="64" rx="6" fill="#fffff8"/>
+        <rect x="48" y="48" width="216" height="64" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="56" y="54" width="48" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="80" y="63" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">EXTERNAL</text>
+        <text x="156" y="88" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">Targets File</text>
+        <text x="156" y="102" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">list_ip.txt · one IP per line</text>
+
+        <!-- main.py -->
+        <rect x="48" y="160" width="216" height="96" rx="6" fill="#fffff8"/>
+        <rect x="48" y="160" width="216" height="96" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1"/>
+        <rect x="56" y="166" width="52" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="82" y="175" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">CLI ENTRY</text>
+        <text x="156" y="212" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">main.py</text>
+        <text x="156" y="228" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">argparse · pyfiglet banner</text>
+
+        <!-- ip/parser.py -->
+        <rect x="48" y="304" width="216" height="88" rx="6" fill="#fffff8"/>
+        <rect x="48" y="304" width="216" height="88" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1"/>
+        <rect x="56" y="310" width="36" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="74" y="319" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">INPUT</text>
+        <text x="156" y="344" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">ip/parser.py</text>
+        <text x="156" y="360" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">parse_ip_list()</text>
+
+        <!-- ip/const.py -->
+        <rect x="464" y="64" width="280" height="56" rx="6" fill="#fffff8"/>
+        <rect x="464" y="64" width="280" height="56" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1"/>
+        <rect x="472" y="70" width="40" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="492" y="79" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">CONFIG</text>
+        <text x="604" y="90" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">ip/const.py</text>
+        <text x="604" y="106" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">TOTAL_PORTS = 65535</text>
+
+        <!-- ip/processor.py (core, accent) -->
+        <rect x="464" y="256" width="280" height="208" rx="6" fill="#eef2fc"/>
+        <rect x="464" y="256" width="280" height="208" rx="6" fill="#eef2fc" stroke="#4169e1" stroke-width="1"/>
+        <rect x="472" y="262" width="32" height="12" rx="2" fill="none" stroke="#4169e1" stroke-width="0.8"/>
+        <text x="488" y="271" fill="#4169e1" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">CORE</text>
+        <text x="604" y="296" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">ip/processor.py</text>
+        <line x1="472" y1="306" x2="736" y2="306" stroke="rgba(17,17,17,0.12)" stroke-width="0.8"/>
+        <g font-family="ui-monospace, Menlo, monospace" font-size="9" fill="#111111">
+          <text x="472" y="334">scan_target_ips()</text>
+          <text x="472" y="366">connect_to_ip()</text>
+          <text x="472" y="398">check_open_ports()</text>
+          <text x="472" y="430">save_port_to_file()</text>
+        </g>
+        <g font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="8" fill="#737373" text-anchor="end">
+          <text x="736" y="334">orchestrates targets</text>
+          <text x="736" y="366">probe :80, 3s timeout</text>
+          <text x="736" y="398">sweep ports 1–65535</text>
+          <text x="736" y="430">write report .txt</text>
+        </g>
+        <line x1="472" y1="344" x2="736" y2="344" stroke="rgba(17,17,17,0.08)" stroke-width="0.8"/>
+        <line x1="472" y1="376" x2="736" y2="376" stroke="rgba(17,17,17,0.08)" stroke-width="0.8"/>
+        <line x1="472" y1="408" x2="736" y2="408" stroke="rgba(17,17,17,0.08)" stroke-width="0.8"/>
+
+        <!-- pretty_print -->
+        <rect x="464" y="504" width="280" height="64" rx="6" fill="#fffff8"/>
+        <rect x="464" y="504" width="280" height="64" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1"/>
+        <rect x="472" y="510" width="44" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="494" y="519" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">UTILITY</text>
+        <text x="604" y="532" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">pretty_print/</text>
+        <text x="604" y="548" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">print_banner() · print_section_header()</text>
+
+        <!-- target host (external, dashed) -->
+        <rect x="832" y="256" width="200" height="112" rx="6" fill="#fffff8"/>
+        <rect x="832" y="256" width="200" height="112" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="840" y="262" width="48" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="864" y="271" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">EXTERNAL</text>
+        <text x="932" y="304" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">Target Host</text>
+        <text x="932" y="320" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">TCP ports 1–65535</text>
+
+        <!-- open_ports .txt (artifact, dashed) -->
+        <rect x="832" y="408" width="200" height="72" rx="6" fill="#fffff8"/>
+        <rect x="832" y="408" width="200" height="72" rx="6" fill="#fffff8" stroke="#111111" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="840" y="414" width="48" height="12" rx="2" fill="none" stroke="rgba(17,17,17,0.4)" stroke-width="0.8"/>
+        <text x="864" y="423" fill="rgba(17,17,17,0.8)" font-size="7" font-family="ui-monospace, Menlo, monospace" text-anchor="middle" letter-spacing="0.08em">ARTIFACT</text>
+        <text x="932" y="440" fill="#111111" font-size="12" font-weight="600" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" text-anchor="middle">open_ports .txt</text>
+        <text x="932" y="456" fill="#737373" font-size="9" font-family="ui-monospace, Menlo, monospace" text-anchor="middle">open_ports_&lt;ip&gt;_&lt;ts&gt;.txt</text>
+
+        <!-- Annotation callout -->
+        <line x1="840" y1="516" x2="840" y2="592" stroke="#4169e1" stroke-width="1.5"/>
+        <g font-family="'et-book', 'Palatino Linotype', Palatino, Georgia, serif" font-size="12.5" fill="#111111">
+          <text x="852" y="530">Port diperiksa satu per satu,</text>
+          <text x="852" y="546">satu koneksi pada satu waktu,</text>
+          <text x="852" y="562">dengan batas waktu 1 detik —</text>
+          <text x="852" y="578">satu host bisa butuh berjam-jam.</text>
+        </g>
+
+        <!-- ===== Legend ===== -->
+        <line x1="30" y1="612" x2="1018" y2="612" stroke="rgba(17,17,17,0.10)" stroke-width="0.8"/>
+        <text x="30" y="634" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="96" y="624" width="24" height="14" rx="3" fill="#fffff8" stroke="#111111" stroke-width="1"/>
+        <text x="128" y="635" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em">MODULE</text>
+        <rect x="212" y="624" width="24" height="14" rx="3" fill="#eef2fc" stroke="#4169e1" stroke-width="1"/>
+        <text x="244" y="635" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em">CORE</text>
+        <rect x="316" y="624" width="24" height="14" rx="3" fill="#fffff8" stroke="#111111" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="348" y="635" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em">EXTERNAL / ARTIFACT</text>
+        <line x1="544" y1="631" x2="576" y2="631" stroke="#737373" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="588" y="635" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em">CALL</text>
+        <line x1="668" y1="631" x2="700" y2="631" stroke="#737373" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <text x="712" y="635" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em">RETURN</text>
+        <line x1="812" y1="631" x2="844" y2="631" stroke="#4169e1" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+        <text x="856" y="635" fill="#737373" font-size="8" font-family="ui-monospace, Menlo, monospace" letter-spacing="0.06em">PRIMARY FLOW</text>
+      </svg>
+    </div>
+
+    <section class="reference">
+      <h2>Penjelasan Fungsi</h2>
+
+      <div class="module">
+        <h3>main.py <span class="accent">— titik awal program</span></h3>
+        <p class="intro">Membaca perintah dari terminal, menentukan dari mana daftar IP target berasal, menampilkan banner pembuka, lalu menyerahkan pekerjaan ke modul pemindai.</p>
+        <table class="fn">
+          <tr><td class="sig">main()</td><td class="body">Menyiapkan tiga opsi perintah: <b>-i</b> (alamat IP target, dipisah koma atau spasi), <b>-f</b> (file teks berisi satu IP per baris), dan <b>-o</b> (folder untuk menyimpan hasil). Kalau tidak ada target sama sekali, program mencetak contoh cara pakai lalu berhenti. IP dari <b>-f</b> dibaca baris per baris; IP dari <b>-i</b> diproses oleh <code>ip.parser.parse_ip_list()</code>. Setelah itu program mencetak banner ASCII "PORT SCANNER" (dengan pyfiglet), daftar target, dan waktu mulai lewat <code>print_section_header()</code>, lalu memanggil <code>ip.processor.scan_target_ips()</code> untuk mulai memindai.</td></tr>
+          <tr><td class="sig">blok __main__</td><td class="body">Membungkus <code>main()</code> agar kalau kita menekan Ctrl+C di tengah pemindaian, program berhenti dengan rapi lewat pesan "[x] Exiting Program!!" tanpa menampilkan error yang berantakan.</td></tr>
+        </table>
+      </div>
+
+      <div class="module">
+        <h3>ip/const.py</h3>
+        <table class="fn">
+          <tr><td class="sig">TOTAL_PORTS = 65535</td><td class="body">Angka batas jumlah port TCP yang dipindai. Ditaruh di file tersendiri supaya hanya ditulis satu kali dan dipakai bersama oleh modul lain, jadi tidak ada beda hitungan antar modul.</td></tr>
+        </table>
+      </div>
+
+      <div class="module">
+        <h3>ip/parser.py</h3>
+        <table class="fn">
+          <tr><td class="sig">parse_ip_list(ip_list)</td><td class="body">Mengubah masukan <b>-i</b> menjadi daftar IP yang rapi. Untuk setiap masukan: kalau isinya nama file yang benar-benar ada, file itu dibaca dan setiap baris yang tidak kosong dijadikan satu target; kalau bukan file, teksnya dipisah berdasarkan koma. Hasilnya berupa daftar gabungan yang kemudian dibersihkan dari entri kosong oleh main.py.</td></tr>
+        </table>
+      </div>
+
+      <div class="module">
+        <h3>ip/processor.py <span class="accent">— mesin pemindai</span></h3>
+        <p class="intro">Seluruh logika pemindaian ada di sini. Satu fungsi mengatur jalannya semuanya; tiga fungsi lainnya masing-masing mengerjakan satu langkah.</p>
+        <table class="fn">
+          <tr><td class="sig">scan_target_ips(targets, output_dir)</td><td class="body">Fungsi pengatur utama. Memeriksa IP target satu per satu sambil mencetak progres ("Scanning Target (1/N)"). Untuk setiap host: cek dulu apakah host bisa dihubungi lewat <code>connect_to_ip()</code> — kalau gagal, host dilewati dengan pesan kesalahan; kalau berhasil, lanjut memindai port dengan <code>check_open_ports()</code>; lalu hasilnya disimpan oleh <code>save_port_to_file()</code>. Kalau penyimpanan ditolak sistem (PermissionError), hasil dicetak ke layar sebagai gantinya. Ctrl+C dan gangguan jaringan juga ditangani dengan pesan yang rapi.</td></tr>
+          <tr><td class="sig">connect_to_ip(target, timeout_sec=3)</td><td class="body">Tes apakah host hidup. Mencoba membuka satu koneksi ke port 80 dengan batas waktu 3 detik, lalu langsung menutupnya. Kalau gagal, host dianggap tidak bisa dihubungi dan pemindaian lanjut ke target berikutnya — jadi program tidak buang waktu memindai 65.535 port pada host yang mati.</td></tr>
+          <tr><td class="sig">check_open_ports(target_ip, port_count)</td><td class="body">Pemindaian sesungguhnya. Untuk setiap port dari 1 sampai <code>TOTAL_PORTS</code>, fungsi membuat koneksi TCP baru dengan batas waktu 1 detik dan memanggil <code>connect_ex()</code>. Kalau hasilnya 0, artinya koneksi berhasil dan port tersebut terbuka. Port yang terbuka dicatat dalam daftar dan langsung diumumkan di layar dengan pesan "[+] Port N is open".</td></tr>
+          <tr><td class="sig">save_port_to_file(target_ip, ports, output_dir)</td><td class="body">Menyimpan hasil. Kalau tidak ada port yang terbuka, fungsi mengembalikan False. Kalau ada, hasil ditulis ke file bernama <code>open_ports_&lt;ip&gt;_&lt;tanggal-jam&gt;.txt</code> (titik pada IP diganti tanda minus, dan mengikuti folder <b>-o</b> kalau diisi) dengan satu nomor port per baris, lalu mencetak pesan berhasil.</td></tr>
+        </table>
+      </div>
+
+      <div class="module">
+        <h3>pretty_print/</h3>
+        <p class="intro">Kumpulan fungsi kecil untuk merapikan tampilan teks di layar, dipakai bersama oleh main.py dan processor.</p>
+        <table class="fn">
+          <tr><td class="sig">print_banner(message)</td><td class="body">Menampilkan pesan di antara dua garis "=" — dipakai untuk peristiwa penting seperti konfirmasi hasil tersimpan atau kesalahan fatal.</td></tr>
+          <tr><td class="sig">print_section_header(message, char='-')</td><td class="body">Pola yang sama tapi karakter garisnya bisa diganti — dipakai untuk progres pemindaian, waktu mulai, dan pesan gagal per target.</td></tr>
+        </table>
+      </div>
+
+      <p class="footnote">Catatan: <code>port_scan.py</code> di folder utama adalah versi lama program ini yang masih satu file. Struktur modul di atas adalah versi yang sudah dipisah: pembacaan masukan, pemindaian, konstanta, dan tampilan teks masing-masing punya file sendiri.</p>
+    </section>
+  </div>
+</body>
+</html>
